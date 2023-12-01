@@ -1,0 +1,10 @@
+__pycache__/
+python/test/
+# python/test/conv_test.ipynb
+# python/test/cupy_test.ipynb
+# python/test/minist_test.ipynb
+# python/test/tensor_gpu_test.ipynb
+# 忽略构建文件夹
+build/
+# 忽略Python包信息文件夹
+*.egg-info/

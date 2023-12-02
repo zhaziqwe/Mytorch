@@ -8,3 +8,4 @@ python/test/
 build/
 # 忽略Python包信息文件夹
 *.egg-info/
+data/SVHN/

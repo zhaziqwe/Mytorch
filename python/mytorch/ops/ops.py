@@ -395,7 +395,6 @@ class Dilate(TensorOp):
         return out_tensor
 
     def gradient(self, out_grad, node):
-        print("dilate")
         out_grad = undilate(out_grad, self.axes, self.dilation)
         return out_grad
 
@@ -419,7 +418,6 @@ class UnDilate(TensorOp):
         return compact(a[tuple(slices)])
 
     def gradient(self, out_grad, node):
-        print("undilate")
         out_grad = dilate(out_grad, self.axes, self.dilation)
         return out_grad
 

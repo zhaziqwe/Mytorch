@@ -79,6 +79,29 @@
 ### 1. 使用方式一：
 
 在 `python/test` 目录下仿照测试文件的引用方法，在 `sys.path` 中加入 `python` 文件夹的目录。即可开始使用。
+```python
+import sys
+import os
+
+# 获取当前工作目录
+current_dir = os.getcwd()
+
+# 获取父目录（即 python_dir）
+project_dir = os.path.dirname(current_dir)
+sys.path.append(project_dir)
+
+
+import numpy as np
+import cupy as cp
+import mytorch as torch
+import mytorch.ops as ops
+import mytorch.nn as nn
+import mytorch.optim as optim
+import mytorch.data as data
+from mytorch.array_device import *
+from mytorch.array_api import array_api
+import mytorch.perfomance as pf
+```
 
 **注意：这种方法是一次性的，推荐给测试开发人员使用**
 
@@ -181,8 +204,8 @@ root_dir
 
 # 加载训练数据集
 train_dataset = data.MNISTDataset(\
-        f"{root_dir}/data/train-images-idx3-ubyte.gz",
-        f"{root_dir}/data/train-labels-idx1-ubyte.gz")
+        f"{root_dir}/data/MNIST/train-images-idx3-ubyte.gz",
+        f"{root_dir}/data/MNIST/train-labels-idx1-ubyte.gz")
 
 # 训练集装入装载器，方便打乱和批量计算
 train_dataloader = data.DataLoader(\
@@ -192,8 +215,8 @@ train_dataloader = data.DataLoader(\
 
 # 测试集同理
 test_dataset = data.MNISTDataset(\
-        f"{root_dir}/data/t10k-images-idx3-ubyte.gz",
-        f"{root_dir}/data/t10k-labels-idx1-ubyte.gz")
+        f"{root_dir}/data/MNIST/t10k-images-idx3-ubyte.gz",
+        f"{root_dir}/data/MNIST/t10k-labels-idx1-ubyte.gz")
 test_dataloader = data.DataLoader(\
         dataset=test_dataset,
         batch_size=batch_size,
@@ -289,17 +312,10 @@ pfm.matrix(8)
 ## 贡献列表
 
 #### 项目负责人
-- 梅然 (meiran0528@gmail.com)
+- MR (meiran0528@gmail.com)
 
 #### 首席技术指导
-- 赵杰友 (zjyscu@gmail.com)
+- ZJY (zjyscu@gmail.com)
 
 #### 创意策划
-- 李晟熙 (1275425660@qq.com)
-
-#### 数据处理大师
-- 陈良缘 (2910411841@qq.com)
-- 徐斌 (1357449044@qq.com)
-
-#### 测试与文档撰写
-- 张敬源 (2310611543@qq.com)
+- LSX (1275425660@qq.com)

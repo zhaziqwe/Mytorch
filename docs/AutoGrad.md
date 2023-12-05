@@ -2,10 +2,9 @@
 
 - **定义**
 首先我们需要知道计算图（Computation graph）的概念
+
 ![计算图](../figures/computational_graph.png)
-我们定义每一个节点是一个值：value。
-定义每条边是一个算子操作：op。
-通过遍历这张计算图我们就可以从输入：v1, 1,得到输出：v4。
+我们定义每一个节点是一个值：value。定义每条边是一个算子操作：op。通过遍历这张计算图我们就可以从输入：v1, 1,得到输出：v4。
 
 $$v_1 = 0$$
 $$v_2 = e^{v_1}$$
@@ -14,15 +13,19 @@ $$v_4 = v_2 \times v_3$$
 中间计算过程会包含各种不同的算子操作，有双目运算符也有单目运算符。
 
 - **反向求导**
-通过计算图的节点信息我们可以求出输出对于输入的偏导数,这涉及到对每个算子求导的操作，如：$  \frac { \partial v_4}{\partial v_3}  $
-通过链式求导法则层层往上求导，得到 ：$ \frac { \partial v_4}{\partial v_1} $
+通过计算图的节点信息我们可以求出输出对于输入的偏导数,这涉及到对每个算子求导的操作，如：$\frac { \partial v_4}{\partial v_3}$
+通过链式求导法则层层往上求导，得到 ：$\frac { \partial v_4}{\partial v_1}$
 但这时会导致一个问题 
-$$  \frac { \partial v_4}{\partial v_1} = \frac { \partial v_4}{\partial v_2} \times \frac { \partial v_2}{\partial v_1} $$
+$$\frac { \partial v_4}{\partial v_1} = \frac { \partial v_4}{\partial v_2} \times \frac { \partial v_2}{\partial v_1}$$
 而 $`\frac { \partial v_4}{\partial v_2} `$ 由两部分组成。（来自 $`v_4`$ 和 $`v_3`$ ） 我们如何知道哪些偏导有多个部分组成？他们的内在关系又如何处理？
-首先定义 $`\overline{v_i}`$ 为输出对某个中间节点 $i$ 的偏导。再巧妙地定义 伴随值(adjoint)为 : 
-$$ \overline{v_{i\rightarrow j}} = \overline{v_j}\frac{\partial v_j}{\partial v_i}$$（这里可以理解为从 $` i `$ 出发到 $` j `$ 的一条路径）。然后根据全微分公式得到
-$$ \overline{v_i} = \sum_{j \in {\rm next(i)}} \overline{v_j}\frac{\partial v_j}{\partial v_i } $$
+首先定义 $`\overline{v_i}`$ 为输出对某个中间节点 $`i`$ 的偏导。再巧妙地定义 伴随值(adjoint)为 : 
+
+$$\overline{v_{i\rightarrow j}} = \overline{v_j}\frac{\partial v_j}{\partial v_i}$$
+（这里可以理解为从 $`i`$ 出发到 $`j`$ 的一条路径）。然后根据全微分公式得到
+
+$$\overline{v_i} = \sum_{j \in {\rm next(i)}} \overline{v_j}\frac{\partial v_j}{\partial v_i }$$
 我们就可以从最后的输出节点一层一层往上，得到对输入节点的偏导。这就是自动求导的原理。
+
 ![自动求导算法](../figures/AD.png)
 
 #### 张量

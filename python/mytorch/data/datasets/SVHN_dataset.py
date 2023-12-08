@@ -27,7 +27,7 @@ class SVHNDataset(Dataset):
         if isinstance(index, (Iterable, slice)):
             img = np.stack([i.reshape((3, 32, 32)) for i in self.images[index]])
         else:
-            img = self.images[index].reshape((3, 32, 32))
+            img = self.images[index].reshape((1, 3, 32, 32))
         img = self.apply_transforms(img)
         label = self.labels[index]
         return img, label

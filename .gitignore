@@ -1,5 +1,5 @@
 __pycache__/
-python/test/
+# python/test/
 # python/test/conv_test.ipynb
 # python/test/cupy_test.ipynb
 # python/test/minist_test.ipynb

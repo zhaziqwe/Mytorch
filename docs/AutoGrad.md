@@ -18,11 +18,12 @@ $$v_4 = v_2 \times v_3$$
 但这时会导致一个问题 
 $$\frac { \partial v_4}{\partial v_1} = \frac { \partial v_4}{\partial v_2} \times \frac { \partial v_2}{\partial v_1}$$
 而 $`\frac { \partial v_4}{\partial v_2} `$ 由两部分组成。（来自 $`v_4`$ 和 $`v_3`$ ） 我们如何知道哪些偏导有多个部分组成？他们的内在关系又如何处理？
-首先定义 $`\overline{v_i}`$ 为输出对某个中间节点 $`i`$ 的偏导。再巧妙地定义 伴随值(adjoint)为 : 
+首先定义 $`\overline{v_i}`$ 为输出对某个中间节点 $`i`$ 的偏导。
+$$ \overline{v_i} = \frac{\partial Out}{\partial v_i} $$
+再巧妙地定义 伴随值(adjoint)为 : 
 
 $$\overline{v_{i\rightarrow j}} = \overline{v_j}\frac{\partial v_j}{\partial v_i}$$
 （这里可以理解为从 $`i`$ 出发到 $`j`$ 的一条路径）。然后根据全微分公式得到
-
 $$\overline{v_i} = \sum_{j \in {\rm next(i)}} \overline{v_j}\frac{\partial v_j}{\partial v_i }$$
 我们就可以从最后的输出节点一层一层往上，得到对输入节点的偏导。这就是自动求导的原理。
 

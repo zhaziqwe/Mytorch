@@ -33,7 +33,7 @@ class DataLoader:
     参数:
     dataset (Dataset): 用于加载数据的数据集。
     batch_size (int, 可选): 每批加载多少样本（默认为 ``1``）。
-    shuffle (bool, 可选): 设置为 ``True`` 表示每个周期重新洗牌数据（默认为 ``False``）。
+    shuffle (bool, 可选): 设置为 ``True`` 表示每个周期重新打乱数据（默认为 ``False``）。
     """
 
     dataset: Dataset

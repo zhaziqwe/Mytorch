@@ -14,12 +14,12 @@ $$v_4 = v_2 \times v_3$$
 
 - **反向求导**
 通过计算图的节点信息我们可以求出输出对于输入的偏导数,这涉及到对每个算子求导的操作，如：$\frac { \partial v_4}{\partial v_3}$
-通过链式求导法则层层往上求导，得到 ：$\frac { \partial v_4}{\partial v_1}$
+通过链式求导法则层层往上求导，得到 ：$$\frac{\partial v_4}{\partial v_1}$$
 但这时会导致一个问题 
 $$\frac { \partial v_4}{\partial v_1} = \frac { \partial v_4}{\partial v_2} \times \frac { \partial v_2}{\partial v_1}$$
 而 $`\frac { \partial v_4}{\partial v_2} `$ 由两部分组成。（来自 $`v_4`$ 和 $`v_3`$ ） 我们如何知道哪些偏导有多个部分组成？他们的内在关系又如何处理？
 首先定义 $`\overline{v_i}`$ 为输出对某个中间节点 $`i`$ 的偏导。
-$$ \overline{v_i} = \frac{\partial Out}{\partial v_i} $$
+$$\overline{v_i} = \frac{\partial Out}{\partial v_i}$$
 再巧妙地定义 伴随值(adjoint)为 : 
 
 $$\overline{v_{i\rightarrow j}} = \overline{v_j}\frac{\partial v_j}{\partial v_i}$$

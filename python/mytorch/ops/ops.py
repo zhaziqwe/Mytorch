@@ -67,7 +67,7 @@ def mul_scalar(a, scalar):
 
 
 class PowerScalar(TensorOp):
-    """Op raise a tensor to an (integer) power."""
+    """Tensor的整数幂"""
 
     def __init__(self, scalar: int):
         self.scalar = scalar
@@ -85,7 +85,7 @@ def power_scalar(a, scalar):
 
 
 class EWiseDiv(TensorOp):
-    """Op to element-wise divide two nodes."""
+    """逐元素的除法"""
 
     def compute(self, a, b):
         return a / b
@@ -359,7 +359,6 @@ class Flip(TensorOp):
         return array_api.flip(a, self.axes)
 
     def gradient(self, out_grad, node):
-        print("flip")
         return flip(out_grad, self.axes)
 
 
@@ -473,7 +472,7 @@ class Conv(TensorOp):
         K = weight_r180.shape[0]
         grad_input = conv(grad_dilate, weight_t, 1, K - 1 - self.padding)
 
-        #对W的导数 涉及到的转置原理太jb复杂了，和卷积实现的乘法矩阵有关系，无视好吧
+        #对W的导数 需要更换索引顺序
         grad_dilate = grad_dilate.transpose((0, 2)).transpose((0, 1))
         input_t = transpose(input,(0,3))
         grad_weight = conv(input_t, grad_dilate, 1, self.padding)
@@ -485,8 +484,6 @@ class Conv(TensorOp):
 
 def conv(a, b, stride=1, padding=1):
     return Conv(stride, padding)(a, b)
-
-
 
 
 

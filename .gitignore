@@ -8,4 +8,4 @@ __pycache__/
 build/
 # 忽略Python包信息文件夹
 *.egg-info/
-data/SVHN/
+*.mat

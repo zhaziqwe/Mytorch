@@ -13,8 +13,10 @@ $$v_4 = v_2 \times v_3$$
 中间计算过程会包含各种不同的算子操作，有双目运算符也有单目运算符。
 
 - **反向求导**
-通过计算图的节点信息我们可以求出输出对于输入的偏导数,这涉及到对每个算子求导的操作，如：$\frac { \partial v_4}{\partial v_3}$
-通过链式求导法则层层往上求导，得到 ：$$\frac{\partial v_4}{\partial v_1}$$
+通过计算图的节点信息我们可以求出输出对于输入的偏导数,这涉及到对每个算子求导的操作，比如
+$$\frac { \partial v_4}{\partial v_3}$$  
+通过链式求导法则层层往上求导，得到
+$$\frac { \partial v_4}{\partial v_1}$$  
 但这时会导致一个问题 
 $$\frac { \partial v_4}{\partial v_1} = \frac { \partial v_4}{\partial v_2} \times \frac { \partial v_2}{\partial v_1}$$
 而 $`\frac { \partial v_4}{\partial v_2} `$ 由两部分组成。（来自 $`v_4`$ 和 $`v_3`$ ） 我们如何知道哪些偏导有多个部分组成？他们的内在关系又如何处理？

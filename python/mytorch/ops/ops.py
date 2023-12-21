@@ -460,7 +460,7 @@ class Conv(TensorOp):
         # print(out.sum())
         return out.reshape((N, H_out, W_out, C_out))
     
-    def gradient(self, out_grad: Value, node: Value) -> Value | Tuple[Value]:
+    def gradient(self, out_grad: Value, node: Value):
         input, weight = node.inputs
 
         #对input的导数

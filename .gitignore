@@ -9,3 +9,4 @@ build/
 # 忽略Python包信息文件夹
 *.egg-info/
 *.mat
+test/

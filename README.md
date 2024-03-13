@@ -190,7 +190,7 @@ class Model(nn.Module):
 ```python
 batch_size=100
 epochs=10
-net = Model()
+net = Model(device=gpu())
 optimizer=optim.Adam(net.parameters(),lr=0.001,weight_decay=0.001)
 criterion= nn.SoftmaxLoss()
 ```

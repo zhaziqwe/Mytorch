@@ -21,6 +21,26 @@ class array_api:
     @staticmethod
     def where(condition, x, y):
         return array_api._auto_select_backend(condition).where(condition, x, y)
+    
+    @staticmethod
+    def argmax(a,axes=None):
+        return array_api._auto_select_backend(a).argmax(a, axis=axes)
+    
+    @staticmethod
+    def ndenumerate(a):
+        backend = array_api._auto_select_backend(a)
+        
+        # 对于NumPy，直接使用其内置的ndenumerate
+        if backend is numpy:
+            return numpy.ndenumerate(a)
+        
+        # 对于CuPy，模拟ndenumerate的行为
+        elif backend is cupy:
+            def cupy_ndenumerate(array):
+                for index in cupy.ndindex(array.shape):
+                    yield index, array[index].item()  # 使用.item()获取Python标量
+            return cupy_ndenumerate(a)
+
 
     @staticmethod
     def multiply(a, b):
@@ -29,6 +49,7 @@ class array_api:
     @staticmethod
     def divide(a, b):
         return array_api._auto_select_backend(a, b).divide(a, b)
+    
     
     @staticmethod
     def power(a, exponent):
@@ -136,6 +157,26 @@ class array_api:
         else:
             raise ValueError("Unknown or mismatched array types for backend")
         
+    @staticmethod
+    def zeros_like(a, dtype="float32"):
+        # 创建全零数组
+        return array_api._auto_select_backend(a).zeros_like(a, dtype=dtype)
+    
+    @staticmethod
+    def arange(start, stop=None, step=1, dtype="float32", device=cpu()):
+        if device == cpu():
+            if stop is None:  # 如果只提供了一个参数，处理为numpy.arange(stop)的情况
+                return numpy.arange(start, dtype=dtype)
+            else:
+                return numpy.arange(start, stop, step, dtype)
+        elif device == gpu():
+            if stop is None:  # 如果只提供了一个参数，处理为cupy.arange(stop)的情况
+                return cupy.arange(start, dtype=dtype)
+            else:
+                return cupy.arange(start, stop, step, dtype)
+        else:
+            raise ValueError("Unknown or mismatched array types for backend")
+
     @staticmethod
     def rand(*shape, device = cpu()):
         if device == cpu():

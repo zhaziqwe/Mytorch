@@ -297,6 +297,9 @@ class Tensor(Value):
     def __matmul__(self, other):
         return mytorch.ops.MatMul()(self, other)
     
+    def __neg__(self):
+        return mytorch.ops.Negate()(self)
+    
     #定义计算函数
 
     def matmul(self, other):
@@ -304,6 +307,9 @@ class Tensor(Value):
 
     def sum(self, axes=None):
         return mytorch.ops.Summation(axes)(self)
+    
+    def max(self, axes=None):
+        return mytorch.ops.Max(axes)(self)
 
     def broadcast_to(self, shape):
         return mytorch.ops.BroadcastTo(shape)(self)
@@ -311,12 +317,9 @@ class Tensor(Value):
     def reshape(self, shape):
         return mytorch.ops.Reshape(shape)(self)
 
-    def __neg__(self):
-        return mytorch.ops.Negate()(self)
-
     def transpose(self, axes=None):
         return mytorch.ops.Transpose(axes)(self)
-
+    
     __radd__ = __add__
     __rmul__ = __mul__
     __rsub__ = __sub__

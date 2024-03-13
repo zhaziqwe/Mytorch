@@ -306,3 +306,33 @@ class ConvBN(Module):
 
     def forward(self, x: Tensor) -> Tensor:
         return self.relu(self.bn(self.conv(x)))
+    
+
+
+class MaxPooling2D(Module):
+    """
+    2D最大池化层
+    接受 NCHW 格式的输入，输出也是 NCHW 格式
+    """
+    def __init__(self, kernel_size, stride=1, padding=0, device=None, dtype="float32"):
+        if isinstance(kernel_size, tuple):
+            kernel_size = kernel_size[0]
+        if isinstance(stride, tuple):
+            stride = stride[0]
+        self.kernel_size = kernel_size
+        self.padding = padding
+        self.stride = stride
+        self.device = device
+        self.dtype = dtype
+
+    def forward(self, x: Tensor) -> Tensor:
+        x = ops.transpose(
+            ops.transpose(x),
+            (1, 3)
+        ) # NCHW -> NCWH -> NHWC
+        x = ops.maxPooling2D(x,self.kernel_size,self.stride,self.padding)
+        x = ops.transpose(
+            ops.transpose(x, (1,3))
+        ) # NHWC -> NCWH -> NCHW
+        return x
+

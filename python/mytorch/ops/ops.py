@@ -486,7 +486,92 @@ def conv(a, b, stride=1, padding=1):
     return Conv(stride, padding)(a, b)
 
 
+class Max(TensorOp):
+    def __init__(self, axes: Optional[tuple] = None):
+        self.axes = axes
+        if isinstance(self.axes, int): 
+            self.axes = tuple([self.axes])
 
+    def compute(self, a):
+        # 计算最大值，同时保持维度以便广播操作
+        return array_api.max(a, axis=self.axes, keepdims=True)
+
+    def gradient(self, out_grad, node):
+        a = node.inputs[0]  # 假设node是一个封装了数据的对象
+        array = a.cached_data
+        # 计算最大值，保持维度以便广播操作
+        max_values = self.compute(array)
+        # 生成一个布尔数组，其中最大值位置为True
+        mask = (array== max_values)
+        # 计算输入梯度的总和
+        grad_sum = array_api.sum(mask, axis=self.axes, keepdims=True)
+        # 将外部梯度（out_grad）广播到与输入数据相同的形状，然后乘以mask。
+        # 这样，只有最大值位置才会获得梯度值。最后，我们需要将梯度值平均分配到所有最大值位置，
+        # 这是通过除以grad_sum实现的，以处理存在多个最大值的情况。
+        grad = out_grad * mask / grad_sum
+        return grad
+
+def max(a, axes=None):
+    return Max(axes)(a)
+
+
+class MaxPooling2D(TensorOp):
+    def __init__(self,kernel_size: int, stride: Optional[int] = 1, padding: Optional[int] = 0):
+        self.stride = stride
+        self.padding = padding
+        self.kernel_size = kernel_size
+        self._A_precomputed = None
+    
+    def precompute(self, A):
+        N, H, W, C = A.shape
+        K = self.kernel_size
+        stride = self.stride
+        padding = self.padding
+        
+        # 应用填充
+        pad_width = [(0, 0), (0, 0), (padding, padding), (padding, padding)]
+        _A = array_api.pad(A, pad_width, mode='constant', constant_values=0) if self.padding > 0 else A
+        
+        # 计算输出形状
+        H_out = (H - K + 2 * padding) // stride + 1
+        W_out = (W - K + 2 * padding) // stride + 1
+        
+        # 获取每个窗口的视图
+        Ns, Hs, Ws, Cs = _A.strides
+        _A = array_api.as_strided(
+            _A,
+            shape=(N, H_out, W_out, K, K, C),
+            strides=(Ns, Hs*stride, Ws*stride, Hs, Ws, Cs)
+        )
+        
+        self._A_precomputed = compact(_A)  # 存储预计算的值
+        
+    
+    def compute(self, A):
+        self.precompute(A)
+        # 计算每个窗口的最大值
+        max_pool_out = array_api.max(self._A_precomputed, axis=(3, 4),keepdims=True)
+        return max_pool_out
+        
+    def gradient(self, out_grad: Tensor, node: Tensor):
+        
+        array = self._A_precomputed
+        array = array.transpose((0,1,2,5,4,3))
+        N,H,W,C,K,_ = array.shape
+        
+        argmax = array_api.argmax(array.reshape(N,H,W,C,K**2), axes=-1)
+        grad_input = array_api.zeros_like(node.inputs[0].cached_data)
+        
+        for i, max_index in array_api.ndenumerate(argmax):
+            n,h,w,c = i
+            mh, mw = max_index // K, max_index % K
+            grad_input[n, h * self.stride + mh, w * self.stride + mw, c] += node.inputs[0].cached_data[i]
+                
+        grad_dilate = dilate(out_grad,(1, 2), self.stride - 1)
+        return summation(grad_dilate,(-3,-2)) * grad_input
+       
+def maxPooling2D(a,kernel_size,stride=1,padding=0):
+    return MaxPooling2D(kernel_size,stride, padding)(a)
 
 
 

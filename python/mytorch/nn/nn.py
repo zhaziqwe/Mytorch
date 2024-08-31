@@ -452,8 +452,8 @@ class TransformerDecoderLayer(Module):
         
 
         self.self_attn = CausalSelfAttention(max_len, n_embd, n_head, device=device, dtype=dtype)
-        self.layer_norm1 = LayerNorm1d(n_embd, device=device, dtype=dtype)
-        self.layer_norm2 = LayerNorm1d(n_embd, device=device, dtype=dtype)
+        self.layer_norm1 = LayerNorm(n_embd, device=device, dtype=dtype)
+        self.layer_norm2 = LayerNorm(n_embd, device=device, dtype=dtype)
         self.mlp = Sequential(
             Linear(n_embd, 4 * n_embd, bias=False, device=device, dtype=dtype),
             self.activation,
@@ -478,7 +478,7 @@ class TransformerDecoder(Module):
         self.wte = Embedding(vocab_size, n_embd, device=device, dtype=dtype)
         self.wpe = Embedding(max_len, n_embd, device=device, dtype=dtype)
         self.layers = Sequential(*[TransformerDecoderLayer(max_len, n_embd, n_head, dropout, activation, device, dtype) for _ in range(n_layer)])
-        self.ln_f = LayerNorm1d(n_embd, device=device, dtype=dtype)
+        self.ln_f = LayerNorm(n_embd, device=device, dtype=dtype)
         self.lm_head = Linear(n_embd, vocab_size, bias=False, device=device, dtype=dtype)
         # weight sharing
         # self.wte.weight.cached_data = self.lm_head.weight.cached_data.T

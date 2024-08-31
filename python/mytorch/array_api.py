@@ -1,5 +1,6 @@
 import cupy
 import numpy
+from typing import Optional, Union
 from .array_device import cpu
 from .array_device import gpu
 
@@ -19,27 +20,16 @@ class array_api:
         return array_api._auto_select_backend(a, b).add(a, b)
     
     @staticmethod
+    def add_at(a, indices, b):
+        return array_api._auto_select_backend(a, b).add.at(a, indices, b)
+    
+    @staticmethod
     def where(condition, x, y):
         return array_api._auto_select_backend(condition).where(condition, x, y)
     
     @staticmethod
     def argmax(a,axes=None):
         return array_api._auto_select_backend(a).argmax(a, axis=axes)
-    
-    @staticmethod
-    def ndenumerate(a):
-        backend = array_api._auto_select_backend(a)
-        
-        # 对于NumPy，直接使用其内置的ndenumerate
-        if backend is numpy:
-            return numpy.ndenumerate(a)
-        
-        # 对于CuPy，模拟ndenumerate的行为
-        elif backend is cupy:
-            def cupy_ndenumerate(array):
-                for index in cupy.ndindex(array.shape):
-                    yield index, array[index].item()  # 使用.item()获取Python标量
-            return cupy_ndenumerate(a)
 
 
     @staticmethod
@@ -147,6 +137,10 @@ class array_api:
             return cupy.ones(shape, dtype = dtype)
         else:
             raise ValueError("Unknown or mismatched array types for backend")
+        
+    @staticmethod
+    def trils(a, k=0):
+        return array_api._auto_select_backend(a).tril(a, k=k)
     
     @staticmethod
     def zeros(shape, dtype = "float32", device = cpu()):
@@ -205,5 +199,5 @@ class array_api:
             raise ValueError("Unknown or mismatched array types for backend")
     
 
-NDArray = None
+NDArray = Optional[Union[numpy.ndarray, cupy.ndarray]]
 

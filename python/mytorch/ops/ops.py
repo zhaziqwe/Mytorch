@@ -308,6 +308,24 @@ def logsumexp(a, axes=None):
     return LogSumExp(axes=axes)(a)
 
 
+class Softmax(TensorOp):
+    def __init__(self, axis: int):
+        self.axis = axis
+
+    def compute(self, a):
+        exp_a = array_api.exp(a - array_api.max(a, axis=self.axis, keepdims=True))
+        return exp_a / array_api.sum(exp_a, axis=self.axis, keepdims=True)
+
+    def gradient(self, out_grad, node):
+        a = node.inputs[0]
+        softmax_out = softmax(a, axis=self.axis)
+        return out_grad * (softmax_out * (1 - softmax_out))
+
+
+def softmax(a, axis):
+    return Softmax(axis)(a)
+
+
 class ReLU(TensorOp):
     def compute(self, a):
         return array_api.maximum(a, 0)
@@ -317,9 +335,30 @@ class ReLU(TensorOp):
         return out_grad * relu_mask
 
 
-
 def relu(a):
     return ReLU()(a)
+
+
+class GeLU(TensorOp):
+    def compute(self, a):
+        # GELU activation function: x * 0.5 * (1.0 + tanh(sqrt(2 / pi) * (x + 0.044715 * x^3)))
+        sqrt2_over_pi = array_api.sqrt(2 / array_api.pi)
+        x_cubed = a ** 3
+        tanh_term = array_api.tanh(sqrt2_over_pi * (a + 0.044715 * x_cubed))
+        return a * 0.5 * (1.0 + tanh_term)
+
+    def gradient(self, out_grad, node):
+        a = node.inputs[0].cached_data
+        # Compute the gradient of GELU w.r.t. its input
+        sqrt2_over_pi = array_api.sqrt(2 / array_api.pi)
+        x_cubed = a ** 3
+        tanh_term = array_api.tanh(sqrt2_over_pi * (a + 0.044715 * x_cubed))
+        grad_gelu = 0.5 * (1.0 + tanh_term) + a * (1.0 - tanh_term ** 2) * sqrt2_over_pi * (1 + 0.044715 * x_cubed)
+        return out_grad * grad_gelu
+
+def gelu(a):
+    return GeLU()(a)
+
 
 
 class Sigmoid(TensorOp):
@@ -327,8 +366,7 @@ class Sigmoid(TensorOp):
         return 1 / (1  + array_api.exp(-a))
 
     def gradient(self, out_grad, node):
-        inp = node.inputs[0]
-        return out_grad * sigmoid(inp) * (1 - sigmoid(inp))
+        return out_grad * sigmoid(node.inputs[0]) * (1 - sigmoid(node.inputs[0]))
 
 
 def sigmoid(a):
@@ -340,15 +378,29 @@ class Tanh(TensorOp):
         return array_api.tanh(a)
 
     def gradient(self, out_grad, node):
-        inp = node.inputs[0]
+        input = node.inputs[0]
         out_grad = out_grad * (
-            1 + (-tanh(inp) ** 2)
+            1 + (-tanh(input) ** 2)
         )
         return out_grad
 
 
 def tanh(a):
     return Tanh()(a)
+
+
+class Sqrt(TensorOp):
+    def compute(self, a):
+        return array_api.sqrt(a)
+
+    def gradient(self, out_grad, node):
+        a = node.inputs[0].cached_data
+        # Gradient of sqrt(x) is 1 / (2 * sqrt(x))
+        sqrt_grad = 1.0 / (2.0 * array_api.sqrt(a))
+        return out_grad * sqrt_grad
+
+def sqrt(a):
+    return Sqrt()(a)
 
 
 class Flip(TensorOp):
@@ -550,7 +602,7 @@ class MaxPooling2D(TensorOp):
     def compute(self, A):
         self.precompute(A)
         # 计算每个窗口的最大值
-        max_pool_out = array_api.max(self._A_precomputed, axis=(3, 4),keepdims=True)
+        max_pool_out = array_api.max(self._A_precomputed, axis=(3, 4),keepdims=False)
         return max_pool_out
         
     def gradient(self, out_grad: Tensor, node: Tensor):
@@ -562,16 +614,37 @@ class MaxPooling2D(TensorOp):
         argmax = array_api.argmax(array.reshape(N,H,W,C,K**2), axes=-1)
         grad_input = array_api.zeros_like(node.inputs[0].cached_data)
         
-        for i, max_index in array_api.ndenumerate(argmax):
-            n,h,w,c = i
-            mh, mw = max_index // K, max_index % K
-            grad_input[n, h * self.stride + mh, w * self.stride + mw, c] += node.inputs[0].cached_data[i]
-                
-        grad_dilate = dilate(out_grad,(1, 2), self.stride - 1)
-        return summation(grad_dilate,(-3,-2)) * grad_input
+        if isinstance(grad_input, (numpy.generic,numpy.ndarray)):
+            for index in numpy.ndindex(argmax.shape):
+                n, h, w, c = index
+                max_index = argmax[index]
+                mh, mw = max_index // K, max_index % K
+                grad_input[n, h * self.stride + mh, w * self.stride + mw, c] += out_grad.cached_data[index]
+        else:
+            for index in cupy.ndindex(argmax.shape):
+                n, h, w, c = index
+                max_index = argmax[index]
+                mh, mw = max_index // K, max_index % K
+                grad_input[n, h * self.stride + mh, w * self.stride + mw, c] += out_grad.cached_data[index]
+    
+        return Tensor(grad_input)
        
 def maxPooling2D(a,kernel_size,stride=1,padding=0):
     return MaxPooling2D(kernel_size,stride, padding)(a)
 
 
+class Embedding(TensorOp):
+    def __init__(self, x):
+        self.x = x.cached_data
+    
+    def compute(self, weight):
+        return weight[self.x.flatten()]
 
+    def gradient(self, out_grad, node):
+        weight = node.inputs[0].cached_data
+        grad_weight = array_api.zeros_like(weight)
+        array_api.add_at(grad_weight, self.x.flatten(), out_grad.cached_data)
+        return Tensor(grad_weight)
+
+def embedding(x, weight):
+    return Embedding(x)(weight)

@@ -2,8 +2,8 @@ from typing import List, Any
 from mytorch.autograd import Tensor
 from mytorch import ops
 from mytorch import init
-
-
+from mytorch import array_api
+import math
 
 class Parameter(Tensor):
     """一种特殊的Tensor参数, 需要更新的参数"""
@@ -191,16 +191,16 @@ class LayerNorm1d(Module):
 
     def forward(self, x: Tensor) -> Tensor:
         batch_size = x.shape[0]
-        features = x.shape[1]
+        features = x.shape[-1]
 
-        mean_x = ops.divide_scalar(ops.summation(x, axes=1), features)
+        mean_x = ops.divide_scalar(ops.summation(x, axes=-1), features)
         broadcast_mean = ops.broadcast_to(
             ops.reshape(mean_x, (-1, 1)), x.shape)
 
         numerator = x - broadcast_mean
 
         var_x = ops.power_scalar(numerator, 2)
-        var_x = ops.summation(ops.divide_scalar(var_x, features), axes=1)
+        var_x = ops.summation(ops.divide_scalar(var_x, features), axes=-1)
         broadcast_var = ops.broadcast_to(ops.reshape(var_x, (-1, 1)), x.shape)
 
         denominator = ops.power_scalar(broadcast_var+self.eps, 0.5)
@@ -213,6 +213,40 @@ class LayerNorm1d(Module):
             ops.reshape(self.bias, (1, -1)), x.shape)
         y = ops.multiply(broadcast_weight, frac) + broadcast_bias
         return y
+
+class LayerNorm(Module):
+    def __init__(self, dim, eps=1e-5, device=None, dtype="float32"):
+        super().__init__()
+        self.dim = dim
+        self.eps = eps
+        self.weight = Parameter(Tensor([1.0] * dim, device=device, dtype=dtype))
+        self.bias = Parameter(Tensor([0.0] * dim, device=device, dtype=dtype))
+
+    def forward(self, x: Tensor) -> Tensor:
+        # x 的形状为 (batch_size, sequence_length, embedding_dim)
+        batch_size, sequence_length, embedding_dim = x.shape
+
+        # 计算每个样本在 embedding_dim 维度上的均值和方差
+        mean_x = ops.divide_scalar(ops.summation(x, axes=-1), embedding_dim)
+        mean_x = ops.broadcast_to(ops.reshape(mean_x, (batch_size, sequence_length, 1)), x.shape)
+
+        numerator = x - mean_x
+
+        var_x = ops.power_scalar(numerator, 2)
+        var_x = ops.summation(ops.divide_scalar(var_x, embedding_dim), axes=-1)
+        var_x = ops.broadcast_to(ops.reshape(var_x, (batch_size, sequence_length, 1)), x.shape)
+
+        denominator = ops.power_scalar(var_x + self.eps, 0.5)
+
+        frac = numerator / denominator
+
+        # 应用权重和偏置
+        broadcast_weight = ops.broadcast_to(ops.reshape(self.weight, (1, 1, -1)), x.shape)
+        broadcast_bias = ops.broadcast_to(ops.reshape(self.bias, (1, 1, -1)), x.shape)
+        y = ops.multiply(broadcast_weight, frac) + broadcast_bias
+        return y
+
+
 
 
 class Dropout(Module):
@@ -336,3 +370,133 @@ class MaxPooling2D(Module):
         ) # NHWC -> NCWH -> NCHW
         return x
 
+
+class Embedding(Module):
+    """
+    词嵌入层
+    接受整数序列，输出为词向量序列
+    """
+    def __init__(self, num_embeddings, embedding_dim, padding_idx=None, device=None, dtype="float32"):
+        super().__init__()
+        self.num_embeddings = num_embeddings
+        self.embedding_dim = embedding_dim
+        self.padding_idx = padding_idx
+        self.weight = Parameter(init.rand(num_embeddings, embedding_dim, device=device, dtype=dtype))
+
+    def forward(self, x: Tensor) -> Tensor:
+        if self.padding_idx is not None:
+            mask = x == self.padding_idx
+            x = x * (1 - mask) + 0 * mask
+        return ops.embedding(x, self.weight)
+
+
+class CausalSelfAttention(Module):
+
+    """
+    多头注意力机制模块
+    """
+    def __init__(self, max_len, n_embd, n_head, device=None, dtype="float32"):
+        assert n_embd % n_head == 0, "n_embd should be divisible by n_head"
+        self.n_embd = n_embd
+        self.n_head = n_head
+
+        self.q_linear = Linear(n_embd, n_embd, bias=False, device=device, dtype=dtype)
+        self.k_linear = Linear(n_embd, n_embd, bias=False, device=device, dtype=dtype)
+        self.v_linear = Linear(n_embd, n_embd, bias=False, device=device, dtype=dtype)
+        self.out_linear = Linear(n_embd, n_embd, bias=False, device=device, dtype=dtype)
+        self.mask = array_api.trils(array_api.ones((max_len, max_len), device=device, dtype=dtype))
+
+    def forward(self, x: Tensor) -> Tensor:
+        batch_size, seq_len, n_embd = x.shape
+        q = self.q_linear(x)
+        k = self.k_linear(x)
+        v = self.v_linear(x)
+        head_size = n_embd // self.n_head
+        q = ops.reshape(q, (batch_size, seq_len, self.n_head, head_size))     
+        k = ops.reshape(k, (batch_size, seq_len, self.n_head, head_size))
+        v = ops.reshape(v, (batch_size, seq_len, self.n_head, head_size))
+        # B, HN, S, HS
+        q = ops.transpose(q, (2, 1))
+        k = ops.transpose(k, (2, 1))
+        v = ops.transpose(v, (2, 1))
+        # B, HN, HS, S
+        k = ops.transpose(k, (2, 3))
+        # B, HN, S, S
+        attn_weights = ops.matmul(q, k) * (1.0 / math.sqrt(head_size))
+        mask_x = Tensor(self.mask[:seq_len, :seq_len])
+        attn_weights = attn_weights * ops.broadcast_to(mask_x, attn_weights.shape) + (1.0 - mask_x) * -1e9
+        attn_weights = ops.softmax(attn_weights, axis=-1)
+        # B, HN, S, HS
+        attn = ops.matmul(attn_weights, v)
+        # B, S, HN, HS
+        attn = ops.transpose(attn, (2, 1))
+        # B, S, HN*HS
+        attn = ops.reshape(attn, (batch_size, seq_len, self.n_head * head_size))
+        # B, S, E
+        output = self.out_linear(attn)
+        return output
+   
+
+
+class TransformerDecoderLayer(Module):
+    """
+    多头自注意力解码层
+    """
+    def __init__(self, max_len, n_embd, n_head, dropout=0.1, activation="relu", device=None, dtype="float32"):
+        if activation == "relu":
+            self.activation = ops.relu
+        elif activation == "gelu":
+            self.activation = ops.gelu
+        else:
+            raise ValueError("activation should be relu or gelu, not {}".format(activation))
+        
+
+        self.self_attn = CausalSelfAttention(max_len, n_embd, n_head, device=device, dtype=dtype)
+        self.layer_norm1 = LayerNorm1d(n_embd, device=device, dtype=dtype)
+        self.layer_norm2 = LayerNorm1d(n_embd, device=device, dtype=dtype)
+        self.mlp = Sequential(
+            Linear(n_embd, 4 * n_embd, bias=False, device=device, dtype=dtype),
+            self.activation,
+            Dropout(dropout),
+            Linear(4 * n_embd, n_embd, bias=False, device=device, dtype=dtype),
+        )
+
+    def forward(self, x: Tensor) -> Tensor:
+        x = x + self.self_attn(self.layer_norm1(x))
+        x = x + self.mlp(self.layer_norm2(x))
+        return x
+    
+
+
+class TransformerDecoder(Module):
+    """
+    多头自注意力解码器
+    """
+    def __init__(self, vocab_size, max_len, n_embd, n_head, n_layer, dropout=0.1, activation="relu", device=None, dtype="float32"):
+        super().__init__()
+        self.n_embd = n_embd
+        self.wte = Embedding(vocab_size, n_embd, device=device, dtype=dtype)
+        self.wpe = Embedding(max_len, n_embd, device=device, dtype=dtype)
+        self.layers = Sequential(*[TransformerDecoderLayer(max_len, n_embd, n_head, dropout, activation, device, dtype) for _ in range(n_layer)])
+        self.ln_f = LayerNorm1d(n_embd, device=device, dtype=dtype)
+        self.lm_head = Linear(n_embd, vocab_size, bias=False, device=device, dtype=dtype)
+        # weight sharing
+        # self.wte.weight.cached_data = self.lm_head.weight.cached_data.T
+
+    def forward(self, idx: Tensor) -> Tensor:
+        batch_size, seq_len = idx.shape
+        tok_emb = self.wte(idx)
+        tok_emb = ops.reshape(tok_emb, (batch_size, seq_len, self.n_embd))
+        pos_emb = self.wpe(Tensor(array_api.arange(seq_len, device=idx.device, dtype=idx.dtype)))
+        pos_emb = ops.broadcast_to(pos_emb, (batch_size, seq_len, self.n_embd))
+
+        x = tok_emb + pos_emb
+        x = self.layers(x)
+        x = self.ln_f(x)
+        logits = self.lm_head(x)
+        return logits
+
+
+        
+
+        

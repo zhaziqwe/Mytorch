@@ -93,8 +93,10 @@ class Value:
 
 
 class Tensor(Value):
+    
     grad: "Tensor"
-
+    total_size = 0
+    
     def __init__(
         self,
         array,
@@ -149,6 +151,9 @@ class Tensor(Value):
             cached_data=cached_data,
             requires_grad=requires_grad,
         )
+
+        self_size = self.size()
+        Tensor.total_size += self_size
 
     @staticmethod
     def _array_from_numpy(numpy_array, dtype):
@@ -243,7 +248,15 @@ class Tensor(Value):
             *self.shape, dtype=self.dtype, device=self.device)
         compute_gradient_of_variables(self, out_grad)
 
+    def size(self):
+        """返回当前Tensor的大小（字节数）"""
+        return self.realize_cached_data().nbytes
     
+    @classmethod
+    def get_total_size(cls):
+        """返回所有Tensor实例的总大小"""
+        return cls.total_size
+
     # 重载运算符
 
     def __repr__(self):

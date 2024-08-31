@@ -1,8 +1,9 @@
-import mytorch as torch
+from mytorch.autograd import Tensor
+from typing import List
 
 class Optimizer:
 
-    def __init__(self, params):
+    def __init__(self, params:List[Tensor]):
         self.params = params
 
     def step(self):
@@ -15,7 +16,7 @@ class Optimizer:
 
 class SGD(Optimizer):
 
-    def __init__(self, params, lr=0.01, momentum=0.0, weight_decay=0.0):
+    def __init__(self, params:List[Tensor], lr=0.01, momentum=0.0, weight_decay=0.0):
         super().__init__(params)
         self.lr = lr
         self.momentum = momentum
@@ -24,17 +25,16 @@ class SGD(Optimizer):
 
     def step(self):
         for param in self.params: 
-            grad = self.u.get(param, 0) * self.momentum + (1 - self.momentum) * (param.grad.detach() + self.weight_decay * param.detach())
-            grad = torch.Tensor(grad, dtype=param.dtype)
+            grad = self.u.get(param, 0) * self.momentum + (1 - self.momentum) * (param.grad.cached_data+ self.weight_decay * param.cached_data)
             self.u[param] = grad 
-            param.data -= self.lr * grad 
+            param.cached_data -= self.lr * grad 
 
 
 class Adam(Optimizer):
 
     def __init__(
         self,
-        params,
+        params:List[Tensor],
         lr=0.01,
         beta1=0.9,
         beta2=0.999,
@@ -55,7 +55,7 @@ class Adam(Optimizer):
     def step(self):
         self.t += 1
         for param in self.params: 
-            grad_with_wd = param.grad.detach() + self.weight_decay * param.detach()
+            grad_with_wd = param.grad.cached_data + self.weight_decay * param.cached_data
             
             new_m = self.m.get(param, 0) * self.beta1 + (1 - self.beta1) * grad_with_wd
             new_v = self.v.get(param, 0) * self.beta2 + (1 - self.beta2) * grad_with_wd ** 2
@@ -65,6 +65,4 @@ class Adam(Optimizer):
             v_with_bias = (new_v / (1 - self.beta2 ** self.t))
 
             update = self.lr * (m_with_bias) / (v_with_bias ** 0.5 + self.eps)
-
-            update = torch.Tensor(update, dtype=param.dtype)
-            param.data -= update.detach()
+            param.cached_data -= update
